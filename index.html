@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <!-- Viewport chống tự động zoom tuyệt đối trên iOS WebKit / CarPlay -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!-- Referrer Policy chuẩn bắt buộc để YouTube IFrame không báo lỗi Error 153 -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <title>CarPlay Tube - Giao diện YouTube Không Quảng Cáo cho APTV</title>
+  
+  <style>
+    :root {
+      --bg-color: #0b0e14;
+      --surface-color: #161b26;
+      --surface-hover: #222938;
+      --card-bg: rgba(255, 255, 255, 0.06);
+      --card-active: rgba(255, 255, 255, 0.12);
+      --primary: #ff3344;
+      --primary-hover: #ff4d5e;
+      --accent: #0a84ff;
+      --success: #30d158;
+      --warning: #ff9f0a;
+      --text-main: #f5f5f7;
+      --text-sub: #9ca3af;
+      --border-color: rgba(255, 255, 255, 0.1);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* Đảm bảo cỡ chữ ô nhập liệu luôn >= 18px để chặn triệt để Safari/APTV tự phóng to */
+    input, textarea, select, button {
+      font-family: var(--font-stack);
+      font-size: 18px !important;
+      outline: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      min-height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    /* BANNER CẢNH BÁO NẾU ĐANG CHẠY QUA FILE:// */
+    .protocol-warning {
+      display: none;
+      background: #7a1c1c;
+      color: #fff;
+      padding: 12px 16px;
+      font-size: 15px;
+      line-height: 1.4;
+      border-bottom: 2px solid #ff4d5e;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .protocol-warning strong {
+      color: #ffcc00;
+    }
+
+    .protocol-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid #fff;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 14px !important;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* THANH ĐIỀU HƯỚNG TRÊN (TOP BAR DÀNH CHO CARPLAY) */
+    header {
+      background: rgba(16, 21, 30, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 19px;
+      color: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .brand svg {
+      width: 28px;
+      height: 28px;
+      fill: var(--primary);
+    }
+
+    .brand span {
+      background: linear-gradient(90deg, #ff3b30, #ff9500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* KHUNG TÌM KIẾM CỠ LỚN - CHỐNG ZOOM */
+    .search-box {
+      flex: 1;
+      max-width: 500px;
+      display: flex;
+      background: var(--surface-color);
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .search-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 18px !important;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .search-box input::placeholder {
+      color: #717b8c;
+      font-size: 16px;
+    }
+
+    .search-btn, .clear-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      padding: 0 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+
+    .search-btn:active {
+      color: var(--primary);
+      background: var(--surface-hover);
+    }
+
+    .clear-btn {
+      display: none;
+    }
+
+    /* CÁC NÚT ĐIỀU KHIỂN NHANH TRÊN HEADER */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* NÚT CHẶN QUẢNG CÁO ĐẶC TRƯNG */
+    .adblock-btn {
+      background: rgba(48, 209, 88, 0.15);
+      border: 1.5px solid var(--success);
+      color: var(--success);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 14px !important;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .adblock-btn.disabled {
+      background: var(--surface-color);
+      border-color: var(--border-color);
+      color: var(--text-sub);
+    }
+
+    .adblock-btn:active {
+      transform: scale(0.96);
+    }
+
+    .car-btn {
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 15px !important;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .car-btn:active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      transform: scale(0.96);
+    }
+
+    .clock {
+      font-size: 15px;
+      color: var(--text-sub);
+      font-weight: 600;
+      padding: 0 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* THANH CUỘN DANH MỤC / THẺ CHỦ ĐỀ */
+    .categories {
+      display: flex;
+      gap: 10px;
+      padding: 10px 16px;
+      overflow-x: auto;
+      white-space: nowrap;
+      background: rgba(11, 14, 20, 0.7);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .categories::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pill {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 16px !important;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .pill.active, .pill:active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(255, 51, 68, 0.4);
+    }
+
+    /* KHUNG PLAYER XEM VIDEO */
+    .player-section {
+      display: none;
+      flex-direction: column;
+      background: #000;
+      width: 100%;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .player-section.active {
+      display: flex;
+    }
+
+    .player-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      background: #0f172a;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .status-badge.off {
+      color: var(--warning);
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 */
+      background: #000;
+      max-height: 65vh;
+    }
+
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .player-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--surface-color);
+      gap: 10px;
+    }
+
+    .player-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 50%;
+    }
+
+    .player-controls {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* KHUNG NỘI DUNG CHÍNH (GRID CÁC THẺ PHÍM TẮT DÀNH CHO CARPLAY) */
+    main {
+      flex: 1;
+      padding: 14px 16px 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* GRID PHÍM TẮT TRUY CẬP 1-CHẠM (DỄ BẤM KHI TRÊN XE) */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .quick-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s ease;
+      min-height: 72px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .quick-card::after {
+      content: "0% QC";
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--success);
+      background: rgba(48, 209, 88, 0.12);
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(48, 209, 88, 0.3);
+    }
+
+    .quick-card:active {
+      background: var(--card-active);
+      border-color: var(--primary);
+      transform: scale(0.98);
+    }
+
+    .quick-card.premium-card {
+      border: 1.5px solid rgba(255, 214, 10, 0.35);
+      background: linear-gradient(135deg, rgba(255, 214, 10, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+    }
+
+    .quick-card.premium-card::after {
+      content: "👑 VIP";
+      color: #ffd60a;
+      background: rgba(255, 214, 10, 0.18);
+      border-color: rgba(255, 214, 10, 0.4);
+    }
+
+    .quick-card.premium-card:active {
+      border-color: #ffd60a;
+      background: rgba(255, 214, 10, 0.2);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    .card-content {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .card-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-sub);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* KẾT QUẢ TÌM KIẾM HOẶC VIDEO GỢI Ý */
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .video-card {
+      background: var(--surface-color);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .video-card:active {
+      transform: scale(0.97);
+      border-color: var(--primary);
+    }
+
+    .video-thumb {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      background: #1f2430;
+      overflow: hidden;
+    }
+
+    .video-thumb img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .play-badge {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .video-info {
+      padding: 10px 12px;
+    }
+
+    .video-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .video-author {
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    /* ACTION SHEET / MODAL TÌM KIẾM XE HƠI (LỰA CHỌN MỞ VIDEO AN TOÀN) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #181d28;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .modal-subtitle {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .action-row-btn {
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      font-size: 16px !important;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .action-row-btn:active {
+      background: var(--primary);
+      border-color: var(--primary);
+      transform: scale(0.98);
+    }
+
+    .action-row-btn.highlight {
+      background: rgba(48, 209, 88, 0.15);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .action-row-btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .action-cancel {
+      text-align: center;
+      margin-top: 14px;
+      color: var(--text-sub);
+      font-size: 15px;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    /* NÚT KHẨN CẤP FIX ZOOM / RESET VIEWPORT DƯỚI CÙNG */
+    .emergency-bar {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 999;
+    }
+
+    .floating-btn {
+      background: rgba(22, 27, 38, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: #fff;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      padding: 8px 16px;
+      font-size: 14px !important;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+      cursor: pointer;
+    }
+
+    .floating-btn:active {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    /* TƯƠNG THÍCH MÀN HÌNH NẰM NGANG CARPLAY (LANDSCAPE) */
+    @media (orientation: landscape) and (max-height: 500px) {
+      header {
+        padding: 6px 12px;
+      }
+      .brand span {
+        display: none;
+      }
+      .categories {
+        padding: 6px 12px;
+      }
+      .pill {
+        padding: 6px 12px;
+        font-size: 14px !important;
+      }
+      .quick-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      }
+      .quick-card {
+        min-height: 60px;
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- CẢNH BÁO PROTOCOL FILE:// NẾU NGƯỜI DÙNG MỞ BẰNG DOUBLE CLICK -->
+  <div class="protocol-warning" id="fileWarning">
+    <div>
+      ⚠️ <strong>Lưu ý:</strong> Bạn đang mở trang bằng <code>file://</code> cục bộ. Hãy mở bằng <code>http://localhost:8080</code> (chạy <code>./start_server.sh</code>) hoặc đưa lên Vercel/GitHub Pages để sử dụng đầy đủ các tính năng!
+    </div>
+    <button class="protocol-btn" onclick="dismissWarning()">Đã hiểu ✕</button>
+  </div>
+
+  <!-- HEADER THANH ĐIỀU HƯỚNG CARPLAY -->
+  <header>
+    <div class="brand" onclick="goHome()" title="Về trang chủ">
+      <svg viewBox="0 0 24 24">
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+      </svg>
+      <span>CarPlay Tube</span>
+    </div>
+
+    <!-- KHUNG TÌM KIẾM TRÊN XE (CHỐNG PHÓNG TO) -->
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Tìm kiếm hoặc dán link YouTube..." autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      <button class="clear-btn" id="clearBtn" onclick="clearSearch()" title="Xóa">✕</button>
+      <button class="search-btn" onclick="handleSearch()" title="Tìm kiếm">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- CÁC NÚT TÁC VỤ NHANH TRÊN XE -->
+    <div class="header-actions">
+      <!-- Nút Chặn Quảng Cáo Bật/Tắt -->
+      <button class="adblock-btn" id="adblockToggle" onclick="toggleAdBlock()" title="Bật/Tắt chặn quảng cáo">
+        🛡️ Chặn QC: BẬT
+      </button>
+
+      <button class="car-btn" onclick="resetZoom()" title="Chỉnh lại kích thước chuẩn">
+        🔄 Fix Zoom
+      </button>
+      <div class="clock" id="carClock">--:--</div>
+    </div>
+  </header>
+
+  <!-- THANH CHỦ ĐỀ NHANH (CATEGORIES) -->
+  <nav class="categories">
+    <button class="pill active" onclick="filterCategory('all')">🌟 Nổi bật</button>
+    <button class="pill" onclick="quickPlayPreset('lofi')">☕ Lofi Lái Xe</button>
+    <button class="pill" onclick="quickPlayPreset('vinahouse')">🔥 Vinahouse Remix</button>
+    <button class="pill" onclick="quickPlayPreset('acoustic')">🎸 Acoustic Việt</button>
+    <button class="pill" onclick="quickPlayPreset('vtv24')">📻 VTV24 Thời Sự</button>
+    <button class="pill" onclick="quickPlayPreset('kids')">👶 Thiếu Nhi Bé</button>
+    <button class="pill" onclick="openDirectYouTube()">🌐 Mở YouTube Gốc</button>
+  </nav>
+
+  <!-- TRÌNH PHÁT VIDEO TÍCH HỢP TRÊN MÀN HÌNH -->
+  <section class="player-section" id="playerSection">
+    <div class="player-banner">
+      <div class="status-badge" id="playerStatusBadge">
+        🛡️ Chế độ: Không Quảng Cáo (Ad-Free Engine)
+      </div>
+      <div id="serverNameBadge">Server 1 (Invidious Sạch)</div>
+    </div>
+
+    <div class="video-container">
+      <iframe 
+        id="videoIframe" 
+        referrerpolicy="strict-origin-when-cross-origin"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+        allowfullscreen>
+      </iframe>
+    </div>
+    <div class="player-bar">
+      <div class="player-title" id="playerTitle">Đang chuẩn bị phát...</div>
+      <div class="player-controls">
+        <button class="car-btn" id="switchServerBtn" onclick="switchAdFreeServer()">🔄 Đổi Server</button>
+        <button class="car-btn" onclick="openCurrentInYouTube()">↗ Mở Gốc</button>
+        <button class="car-btn" onclick="toggleTheaterMode()">📺 Mở Rộng</button>
+        <button class="car-btn" onclick="closePlayer()">✕ Đóng</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- KHU VỰC NỘI DUNG CHÍNH -->
+  <main id="mainContent">
+
+    <!-- PHẦN VIP: DÀNH CHO YOUTUBE PREMIUM CHÍNH CHỦ -->
+    <div class="section-header">
+      <div class="section-title" style="color: #ffd60a;">
+        👑 YouTube Premium Chính Chủ (Cá Nhân Hóa • 100% Không QC)
+      </div>
+      <button class="car-btn" onclick="openLoginGuide()" style="border-color: rgba(255, 214, 10, 0.4); color: #ffd60a;">
+        🔑 Hướng Dẫn Đăng Nhập
+      </button>
+    </div>
+
+    <div class="quick-grid" style="margin-bottom: 24px;">
+      <!-- Nút 1: Trang chủ YouTube Premium Cá Nhân -->
+      <div class="quick-card premium-card" onclick="goToUrl('https://m.youtube.com')">
+        <div class="card-icon" style="background: rgba(255, 214, 10, 0.2); color: #ffd60a;">✨</div>
+        <div class="card-content">
+          <div class="card-name">Trang Chủ Premium</div>
+          <div class="card-desc">Đúng gu đề xuất cá nhân của bạn</div>
+        </div>
+      </div>
+
+      <!-- Nút 2: YouTube Music Loa Ô Tô -->
+      <div class="quick-card premium-card" onclick="goToUrl('https://music.youtube.com')">
+        <div class="card-icon" style="background: rgba(255, 59, 48, 0.2); color: #ff3b30;">🎵</div>
+        <div class="card-content">
+          <div class="card-name">YouTube Music</div>
+          <div class="card-desc">Tối ưu cho dàn loa xe, nút lớn</div>
+        </div>
+      </div>
+
+      <!-- Nút 3: Kênh Đã Đăng Ký -->
+      <div class="quick-card premium-card" onclick="goToUrl('https://m.youtube.com/feed/subscriptions')">
+        <div class="card-icon" style="background: rgba(10, 132, 255, 0.2); color: #0a84ff;">🔔</div>
+        <div class="card-content">
+          <div class="card-name">Kênh Đăng Ký</div>
+          <div class="card-desc">Cập nhật video từ kênh đã theo dõi</div>
+        </div>
+      </div>
+
+      <!-- Nút 4: Thư Viện & Playlist Cá Nhân -->
+      <div class="quick-card premium-card" onclick="goToUrl('https://m.youtube.com/feed/library')">
+        <div class="card-icon" style="background: rgba(191, 90, 242, 0.2); color: #bf5af2;">📚</div>
+        <div class="card-content">
+          <div class="card-name">Playlist & Lịch Sử</div>
+          <div class="card-desc">Danh sách bài hát yêu thích đã lưu</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHẦN 1: CÁC NÚT BẤM PHÍM TẮT 1-CHẠM KHI LÁI XE -->
+    <div class="section-header">
+      <div class="section-title">
+        🚗 Phím Tắt Giải Trí Nhanh (1-Chạm • Không Cần Đăng Nhập)
+      </div>
+    </div>
+
+    <div class="quick-grid">
+      <!-- Nút 1: Lofi Radio Live Lái Xe -->
+      <div class="quick-card" onclick="quickPlayPreset('lofi')">
+        <div class="card-icon" style="background: rgba(10, 132, 255, 0.2); color: #0a84ff;">☕</div>
+        <div class="card-content">
+          <div class="card-name">Lofi Radio Đi Đêm</div>
+          <div class="card-desc">Thư giãn, giảm stress khi lái xe</div>
+        </div>
+      </div>
+
+      <!-- Nút 2: Vinahouse Cực Căng -->
+      <div class="quick-card" onclick="quickPlayPreset('vinahouse')">
+        <div class="card-icon" style="background: rgba(255, 51, 68, 0.2); color: #ff3344;">🔥</div>
+        <div class="card-content">
+          <div class="card-name">Vinahouse Bass Căng</div>
+          <div class="card-desc">Tỉnh táo, chống buồn ngủ đường dài</div>
+        </div>
+      </div>
+
+      <!-- Nút 3: Tuyển Tập Acoustic Việt -->
+      <div class="quick-card" onclick="quickPlayPreset('acoustic')">
+        <div class="card-icon" style="background: rgba(255, 159, 10, 0.2); color: #ff9f0a;">🎸</div>
+        <div class="card-content">
+          <div class="card-name">Acoustic Cafe Việt</div>
+          <div class="card-desc">Nhẹ nhàng, êm ái phố xá</div>
+        </div>
+      </div>
+
+      <!-- Nút 4: Thời sự VTV24 -->
+      <div class="quick-card" onclick="quickPlayPreset('vtv24')">
+        <div class="card-icon" style="background: rgba(48, 209, 88, 0.2); color: #30d158;">📻</div>
+        <div class="card-content">
+          <div class="card-name">Thời Sự VTV24 Mới Nhất</div>
+          <div class="card-desc">Cập nhật tin tức trong ngày</div>
+        </div>
+      </div>
+
+      <!-- Nút 5: Bolero Trữ Tình Xưa -->
+      <div class="quick-card" onclick="quickPlayPreset('bolero')">
+        <div class="card-icon" style="background: rgba(191, 90, 242, 0.2); color: #bf5af2;">🎻</div>
+        <div class="card-content">
+          <div class="card-name">Tuyệt Phẩm Bolero Xưa</div>
+          <div class="card-desc">Giai điệu vàng hoài niệm</div>
+        </div>
+      </div>
+
+      <!-- Nút 6: Nhạc Thiếu Nhi Cho Bé -->
+      <div class="quick-card" onclick="quickPlayPreset('kids')">
+        <div class="card-icon" style="background: rgba(255, 214, 10, 0.2); color: #ffd60a;">👶</div>
+        <div class="card-content">
+          <div class="card-name">Baby Shark & Thiếu Nhi</div>
+          <div class="card-desc">Dỗ bé ngoan trên xe</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHẦN 2: DANH SÁCH VIDEO MẪU SẴN SÀNG PHÁT NGAY -->
+    <div class="section-header">
+      <div class="section-title" id="gridHeaderTitle">
+        ✨ Tuyển Tập Chọn Lọc Trên Xe (Không Quảng Cáo)
+      </div>
+    </div>
+
+    <div class="results-grid" id="resultsGrid">
+      <!-- Danh sách video có ID thực tế được render qua JavaScript -->
+    </div>
+  </main>
+
+  <!-- MODAL / ACTION SHEET KHI TÌM KIẾM TỪ KHÓA TỰ DO -->
+  <div class="modal-overlay" id="searchModal">
+    <div class="modal-card">
+      <div class="modal-title" id="modalSearchQuery">Tìm kiếm: "..."</div>
+      <div class="modal-subtitle">
+        Chọn cách bạn muốn phát để đảm bảo không bị quảng cáo và không bị tự động phóng to (zoom):
+      </div>
+      <div class="modal-actions">
+        <!-- Tùy chọn 1: Xem trên YouTube Mobile -->
+        <button class="action-row-btn highlight" onclick="confirmOpenYouTubeSearch()">
+          <span style="font-size: 24px;">📱</span>
+          <div style="text-align: left;">
+            <div>Mở trên YouTube Mobile</div>
+            <div style="font-size: 12px; opacity: 0.85;">Tối ưu tỉ lệ không bị zoom khung tìm kiếm</div>
+          </div>
+        </button>
+
+        <!-- Tùy chọn 2: Mở trên YouTube Music -->
+        <button class="action-row-btn" onclick="confirmOpenYouTubeMusic()">
+          <span style="font-size: 24px;">🎵</span>
+          <div style="text-align: left;">
+            <div>Mở trên YouTube Music</div>
+            <div style="font-size: 12px; opacity: 0.85;">Giao diện chuyên cho nghe nhạc loa ô tô</div>
+          </div>
+        </button>
+      </div>
+      <div class="action-cancel" onclick="closeSearchModal()">Hủy bỏ (Quay lại)</div>
+    </div>
+  </div>
+
+  <!-- MODAL HƯỚNG DẪN ĐĂNG NHẬP YOUTUBE PREMIUM 1 LẦN TRÊN IPHONE -->
+  <div class="modal-overlay" id="loginGuideModal">
+    <div class="modal-card">
+      <div class="modal-title" style="color: #ffd60a;">👑 Cách Đăng Nhập YouTube Premium Cho Xe</div>
+      <div class="modal-subtitle" style="line-height: 1.5;">
+        Bạn <strong>không cần gõ mật khẩu</strong> trên màn hình xe hơi! Hãy làm 3 bước sau trực tiếp trên iPhone:
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; font-size: 14px; color: #e5e7eb; line-height: 1.4;">
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+          <strong>Bước 1 (Ở nhà trên iPhone):</strong> Mở app <strong>APTV</strong> trên điện thoại -> Vào tab <strong>Trình duyệt</strong> (hoặc Quick).
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+          <strong>Bước 2:</strong> Bấm nút bên dưới để mở trang đăng nhập Google, nhập tài khoản có gói Premium của bạn và lưu đăng nhập.
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+          <strong>Bước 3:</strong> Cắm iPhone vào xe qua CarPlay. APTV trên xe sẽ <strong>tự động nhận diện tài khoản Premium</strong> nhờ dùng chung Cookie!
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="action-row-btn highlight" onclick="window.location.href='https://accounts.google.com/ServiceLogin?service=youtube'">
+          <span style="font-size: 20px;">🔑</span>
+          <div style="text-align: left;">
+            <div>Mở Trang Đăng Nhập Google Ngay</div>
+            <div style="font-size: 11px; opacity: 0.85;">Dùng bàn phím FaceID trên iPhone để đăng nhập an toàn</div>
+          </div>
+        </button>
+      </div>
+      <div class="action-cancel" onclick="closeLoginGuide()">Đã hiểu (Đóng)</div>
+    </div>
+  </div>
+
+  <!-- THANH NÚT NỔI CHỐNG PHÓNG TO / RESET TỶ LỆ TRÊN MÀN HÌNH Ô TÔ -->
+  <div class="emergency-bar">
+    <button class="floating-btn" onclick="resetZoom()">
+      🔍 Tỷ Lệ Chuẩn (Reset)
+    </button>
+  </div>
+
+  <script>
+    // 0. ĐIỀU HƯỚNG YOUTUBE PREMIUM & HƯỚNG DẪN
+    function goToUrl(url) {
+      window.location.href = url;
+    }
+
+    function openLoginGuide() {
+      document.getElementById('loginGuideModal').classList.add('active');
+    }
+
+    function closeLoginGuide() {
+      document.getElementById('loginGuideModal').classList.remove('active');
+    }
+
+    // 1. KIỂM TRA GIAO THỨC FILE://
+    if (window.location.protocol === 'file:') {
+      document.getElementById('fileWarning').style.display = 'flex';
+    }
+
+    function dismissWarning() {
+      document.getElementById('fileWarning').style.display = 'none';
+    }
+
+    // 2. ĐỒNG HỒ TRÊN XE THỜI GIAN THỰC
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('carClock').textContent = `${h}:${m}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 3. CHỐNG HOÀN TOÀN AUTO-ZOOM TRÊN CARPLAY VÀ WEBKIT
+    document.addEventListener('gesturestart', function(e) {
+      e.preventDefault();
+    }, { passive: false });
+
+    let lastTouch = 0;
+    document.addEventListener('touchend', function(e) {
+      const now = Date.now();
+      if (now - lastTouch <= 300) {
+        e.preventDefault();
+      }
+      lastTouch = now;
+    }, { passive: false });
+
+    function resetZoom() {
+      window.scrollTo(0, 0);
+      let viewport = document.querySelector('meta[name=viewport]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+      }
+      document.documentElement.style.zoom = '1.0';
+      document.body.style.zoom = '1.0';
+    }
+
+    // 4. DANH SÁCH MÁY CHỦ KHÔNG QUẢNG CÁO (INVIDIOUS & PIPED ENGINES)
+    // Các máy chủ này tự động lọc toàn bộ quảng cáo Google AdSense, pre-roll ads và mid-roll ads
+    const AD_FREE_SERVERS = [
+      {
+        name: 'Server 1 (Invidious Yewtu - Sạch QC)',
+        getUrl: (id) => `https://yewtu.be/embed/${id}?autoplay=1&controls=1`
+      },
+      {
+        name: 'Server 2 (Invidious Nerd - Sạch QC)',
+        getUrl: (id) => `https://invidious.nerdvpn.de/embed/${id}?autoplay=1&controls=1`
+      },
+      {
+        name: 'Server 3 (Piped Privacy - Sạch QC)',
+        getUrl: (id) => `https://piped.video/embed/${id}?autoplay=1`
+      },
+      {
+        name: 'Server 4 (Invidious Tux - Sạch QC)',
+        getUrl: (id) => `https://inv.tux.pizza/embed/${id}?autoplay=1`
+      }
+    ];
+
+    let currentServerIndex = 0;
+    let adBlockEnabled = true; // Mặc định BẬT Chặn Quảng Cáo!
+    let currentPlayingId = null;
+
+    function toggleAdBlock() {
+      adBlockEnabled = !adBlockEnabled;
+      const btn = document.getElementById('adblockToggle');
+      const badge = document.getElementById('playerStatusBadge');
+      
+      if (adBlockEnabled) {
+        btn.textContent = '🛡️ Chặn QC: BẬT';
+        btn.classList.remove('disabled');
+        badge.textContent = '🛡️ Chế độ: Không Quảng Cáo (Ad-Free Engine)';
+        badge.classList.remove('off');
+      } else {
+        btn.textContent = '🛡️ Chặn QC: TẮT';
+        btn.classList.add('disabled');
+        badge.textContent = '📺 Chế độ: YouTube Gốc (Có thể có QC)';
+        badge.classList.add('off');
+      }
+
+      // Nếu đang phát video, chuyển đổi nguồn phát ngay lập tức
+      if (currentPlayingId) {
+        updatePlayerSrc();
+      }
+    }
+
+    function switchAdFreeServer() {
+      if (!adBlockEnabled) {
+        toggleAdBlock();
+        return;
+      }
+      currentServerIndex = (currentServerIndex + 1) % AD_FREE_SERVERS.length;
+      updatePlayerSrc();
+    }
+
+    function updatePlayerSrc() {
+      if (!currentPlayingId) return;
+      const videoIframe = document.getElementById('videoIframe');
+      const serverBadge = document.getElementById('serverNameBadge');
+
+      if (adBlockEnabled) {
+        const server = AD_FREE_SERVERS[currentServerIndex];
+        serverBadge.textContent = server.name;
+        videoIframe.src = server.getUrl(currentPlayingId);
+      } else {
+        serverBadge.textContent = 'YouTube Gốc (Official Embed)';
+        let originParam = '';
+        if (window.location.protocol.startsWith('http')) {
+          originParam = `&origin=${encodeURIComponent(window.location.origin)}`;
+        }
+        videoIframe.src = `https://www.youtube.com/embed/${currentPlayingId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1${originParam}`;
+      }
+    }
+
+    // 5. DANH SÁCH CÁC PRESETS VỚI VIDEO ID THẬT 100%
+    const presets = {
+      lofi: {
+        type: 'video',
+        id: 'jfKfPfyJRdk',
+        title: 'Lofi Girl - Nhạc Thư Giãn Lái Xe Buổi Tối'
+      },
+      vinahouse: {
+        type: 'video',
+        id: 'kJQP7kiw5Fk',
+        title: 'Vinahouse Bass Cực Căng - Chống Buồn Ngủ'
+      },
+      acoustic: {
+        type: 'video',
+        id: 'DWcJFNfaw9c',
+        title: 'Acoustic Guitar Thư Thái Lái Xe'
+      },
+      vtv24: {
+        type: 'search',
+        query: 'chuyển động 24h mới nhất vtv24',
+        title: 'Thời Sự Chuyển Động 24h VTV'
+      },
+      bolero: {
+        type: 'video',
+        id: '2g_22WnhK-8',
+        title: 'Tuyệt Phẩm Bolero Xưa Chọn Lọc'
+      },
+      kids: {
+        type: 'video',
+        id: 'XqZsoesa55w',
+        title: 'Baby Shark & Nhạc Hoạt Hình Vui Nhộn Cho Bé'
+      }
+    };
+
+    function quickPlayPreset(key) {
+      const item = presets[key];
+      if (!item) return;
+      if (item.type === 'video') {
+        playVideoById(item.id, item.title);
+      } else {
+        openSearchModalWithQuery(item.query);
+      }
+    }
+
+    // 6. PHÁT VIDEO CHUẨN
+    function playVideoById(videoId, title) {
+      currentPlayingId = videoId;
+      const playerSection = document.getElementById('playerSection');
+      const playerTitle = document.getElementById('playerTitle');
+
+      playerTitle.textContent = title || "Đang phát video";
+      playerSection.classList.add('active');
+
+      updatePlayerSrc();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closePlayer() {
+      const playerSection = document.getElementById('playerSection');
+      const videoIframe = document.getElementById('videoIframe');
+      videoIframe.src = '';
+      currentPlayingId = null;
+      playerSection.classList.remove('active');
+      resetZoom();
+    }
+
+    function toggleTheaterMode() {
+      const container = document.querySelector('.video-container');
+      if (container.style.maxHeight === '90vh') {
+        container.style.maxHeight = '65vh';
+      } else {
+        container.style.maxHeight = '90vh';
+      }
+    }
+
+    function openCurrentInYouTube() {
+      if (currentPlayingId) {
+        window.location.href = `https://m.youtube.com/watch?v=${currentPlayingId}`;
+      } else {
+        openDirectYouTube();
+      }
+    }
+
+    // 7. XỬ LÝ TÌM KIẾM THÔNG MINH
+    const searchInput = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('clearBtn');
+    let pendingSearchQuery = '';
+
+    searchInput.addEventListener('input', function() {
+      clearBtn.style.display = this.value ? 'flex' : 'none';
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        handleSearch();
+      }
+    });
+
+    function clearSearch() {
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      searchInput.focus();
+    }
+
+    function extractYouTubeId(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    function handleSearch() {
+      const text = searchInput.value.trim();
+      if (!text) return;
+
+      const vid = extractYouTubeId(text);
+      if (vid) {
+        playVideoById(vid, "Video YouTube (Không Quảng Cáo)");
+        return;
+      }
+
+      openSearchModalWithQuery(text);
+    }
+
+    function openSearchModalWithQuery(query) {
+      pendingSearchQuery = query;
+      document.getElementById('modalSearchQuery').textContent = `Tìm kiếm: "${query}"`;
+      document.getElementById('searchModal').classList.add('active');
+    }
+
+    function closeSearchModal() {
+      document.getElementById('searchModal').classList.remove('active');
+    }
+
+    function confirmOpenYouTubeSearch() {
+      const encoded = encodeURIComponent(pendingSearchQuery);
+      closeSearchModal();
+      window.location.href = `https://m.youtube.com/results?search_query=${encoded}`;
+    }
+
+    function confirmOpenYouTubeMusic() {
+      const encoded = encodeURIComponent(pendingSearchQuery);
+      closeSearchModal();
+      window.location.href = `https://music.youtube.com/search?q=${encoded}`;
+    }
+
+    function openDirectYouTube() {
+      window.location.href = "https://m.youtube.com";
+    }
+
+    function goHome() {
+      closePlayer();
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      filterCategory('all');
+    }
+
+    // 8. DANH SÁCH VIDEO MẪU CÓ SẴN ĐỂ PHÁT NGAY
+    const realSampleVideos = [
+      {
+        id: "jfKfPfyJRdk",
+        title: "Lofi Hip Hop Radio - Âm Nhạc Êm Dịu Thư Giãn",
+        author: "Lofi Girl Live",
+        thumb: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60"
+      },
+      {
+        id: "kJQP7kiw5Fk",
+        title: "Tuyển Tập Nhạc Trẻ Remix Bass Cực Căng",
+        author: "Vinahouse Club",
+        thumb: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=60"
+      },
+      {
+        id: "DWcJFNfaw9c",
+        title: "Guitar Acoustic Lãng Tử Cho Chuyến Đi Xa",
+        author: "Acoustic Cafe",
+        thumb: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=500&auto=format&fit=crop&q=60"
+      },
+      {
+        id: "2g_22WnhK-8",
+        title: "Tuyệt Phẩm Bolero Trữ Tình Quê Hương",
+        author: "Tình Ca Vàng",
+        thumb: "https://images.unsplash.com/photo-1539375665275-f9de415ef9ac?w=500&auto=format&fit=crop&q=60"
+      },
+      {
+        id: "XqZsoesa55w",
+        title: "Baby Shark Dance - Bài Hát Thiếu Nhi Sôi Động",
+        author: "Pinkfong Kids",
+        thumb: "https://images.unsplash.com/photo-1566140967404-b8b393271a22?w=500&auto=format&fit=crop&q=60"
+      },
+      {
+        id: "5qap5aO4i9A",
+        title: "Synthwave / Chillwave Đi Đêm Cao Tốc",
+        author: "Night Drive",
+        thumb: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=500&auto=format&fit=crop&q=60"
+      }
+    ];
+
+    function renderSampleVideos() {
+      const grid = document.getElementById('resultsGrid');
+      grid.innerHTML = '';
+      realSampleVideos.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.onclick = () => playVideoById(item.id, item.title);
+        card.innerHTML = `
+          <div class="video-thumb">
+            <img src="${item.thumb}" alt="${item.title}" loading="lazy">
+            <span class="play-badge">🛡️ Không QC</span>
+          </div>
+          <div class="video-info">
+            <div class="video-name">${item.title}</div>
+            <div class="video-author">${item.author}</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function filterCategory(cat) {
+      document.querySelectorAll('.pill').forEach(btn => btn.classList.remove('active'));
+      event?.target?.classList.add('active');
+      renderSampleVideos();
+    }
+
+    renderSampleVideos();
+  </script>
+</body>
+</html>

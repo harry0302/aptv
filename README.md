@@ -15,6 +15,8 @@ Khi bạn mở `m.youtube.com` trên trình duyệt tích hợp của APTV:
 
 ## ✨ Điểm nổi bật của CarPlay Tube
 
+- 🪟 **Chia Đôi Màn Hình Chuẩn Xe Hơi (Split-Screen):** Vừa xem video / nghe nhạc YouTube một bên, vừa xem **Bản đồ định vị GPS thời gian thực (Live GPS Map)** và **Đồng hồ đo tốc độ xe (Digital HUD Speedometer: km/h)** ở bên còn lại. Hỗ trợ nút `⇄ Đổi Bên` (Trái / Phải) linh hoạt cho mọi loại xe.
+- 👑 **Tối Ưu YouTube Premium Chính Chủ:** Đầy đủ các phím tắt VIP đưa thẳng vào Trang Chủ Premium (đề xuất đúng gu cá nhân), YouTube Music (âm thanh loa xe đỉnh cao), Kênh Đăng Ký và Playlist.
 - 🛡️ **Loại Bỏ 100% Quảng Cáo (Ad-Free Engine):** Học theo kiến trúc của các ứng dụng nổi tiếng như *Brave, Piped, Invidious, NewPipe*, tự động lọc sạch quảng cáo Google AdSense, video quảng cáo đầu/giữa video (pre-roll & mid-roll ads), hỗ trợ bỏ qua đoạn tài trợ (SponsorBlock).
 - 🔄 **Hệ Thống Đa Máy Chủ (Multi-Server Failover):** Tích hợp sẵn 4 máy chủ sạch không quảng cáo. Nếu mạng 4G/5G trên xe chập chờn với một server, bạn chỉ cần bấm **"Đổi Server"** bằng 1 chạm.
 - 🎛️ **Nút Bật/Tắt Chặn QC Tức Thì:** Có thể chuyển đổi linh hoạt giữa chế độ **Không Quảng Cáo** và **YouTube Gốc** ngay trên thanh điều hướng.

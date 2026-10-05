@@ -9,8 +9,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="format-detection" content="telephone=no">
-  <title>CarPlay Tube - Giao diện YouTube Không Quảng Cáo cho APTV</title>
+  <title>CarPlay Tube - Giao diện YouTube & Chia Đôi Màn Hình cho APTV</title>
   
+  <!-- Thư viện bản đồ Leaflet cho tính năng Chia Đôi Màn Hình (Live GPS Map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     :root {
       --bg-color: #0b0e14;
@@ -357,6 +361,176 @@
       display: flex;
       gap: 8px;
       flex-shrink: 0;
+    }
+
+    /* CHẾ ĐỘ CHIA ĐÔI MÀN HÌNH (SPLIT-SCREEN) */
+    .split-wrapper {
+      display: block;
+      width: 100%;
+    }
+
+    .split-wrapper.active {
+      display: flex;
+      flex-direction: row;
+      height: calc(100vh - 65px);
+      min-height: 420px;
+      overflow: hidden;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .split-wrapper.active.reverse {
+      flex-direction: row-reverse;
+    }
+
+    .split-wrapper.active .player-section {
+      display: flex !important;
+      flex: 5.5;
+      height: 100%;
+      border-bottom: none;
+      border-right: 2px solid var(--border-color);
+    }
+
+    .split-wrapper.active.reverse .player-section {
+      border-right: none;
+      border-left: 2px solid var(--border-color);
+    }
+
+    .split-wrapper.active .video-container {
+      flex: 1;
+      padding-top: 0;
+      max-height: none;
+      height: 100%;
+    }
+
+    .side-panel {
+      display: none;
+      flex: 4.5;
+      flex-direction: column;
+      background: var(--surface-color);
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .split-wrapper.active .side-panel {
+      display: flex;
+    }
+
+    .side-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(16, 21, 30, 0.95);
+      border-bottom: 1px solid var(--border-color);
+      gap: 6px;
+    }
+
+    .side-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .side-tab-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px !important;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .side-tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .side-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .side-content {
+      flex: 1;
+      position: relative;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* BẢN ĐỒ LEAFLET TRÊN XE */
+    #carplayMap {
+      width: 100%;
+      height: 100%;
+      min-height: 250px;
+      background: #0d1117;
+    }
+
+    .map-hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .hud-box {
+      background: rgba(16, 21, 30, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      color: #fff;
+      pointer-events: auto;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
+    }
+
+    .speed-number {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--success);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px !important;
+      font-weight: 700;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    /* NÚT CHIA ĐÔI NỔI BẬT */
+    .split-toggle-btn {
+      background: rgba(10, 132, 255, 0.15);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 14px !important;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .split-toggle-btn.active {
+      background: var(--accent);
+      color: #fff;
     }
 
     /* KHUNG NỘI DUNG CHÍNH (GRID CÁC THẺ PHÍM TẮT DÀNH CHO CARPLAY) */
@@ -732,6 +906,11 @@
 
     <!-- CÁC NÚT TÁC VỤ NHANH TRÊN XE -->
     <div class="header-actions">
+      <!-- Nút Chia Đôi Màn Hình -->
+      <button class="split-toggle-btn" id="splitToggleBtn" onclick="toggleSplitScreen()" title="Bật/Tắt chia đôi màn hình">
+        🪟 Chia Đôi
+      </button>
+
       <!-- Nút Chặn Quảng Cáo Bật/Tắt -->
       <button class="adblock-btn" id="adblockToggle" onclick="toggleAdBlock()" title="Bật/Tắt chặn quảng cáo">
         🛡️ Chặn QC: BẬT
@@ -755,33 +934,133 @@
     <button class="pill" onclick="openDirectYouTube()">🌐 Mở YouTube Gốc</button>
   </nav>
 
-  <!-- TRÌNH PHÁT VIDEO TÍCH HỢP TRÊN MÀN HÌNH -->
-  <section class="player-section" id="playerSection">
-    <div class="player-banner">
-      <div class="status-badge" id="playerStatusBadge">
-        🛡️ Chế độ: Không Quảng Cáo (Ad-Free Engine)
+  <!-- KHUNG CHIA ĐÔI MÀN HÌNH (SPLIT-SCREEN WRAPPER) -->
+  <div class="split-wrapper" id="splitWrapper">
+    <!-- CỘT 1: TRÌNH PHÁT VIDEO TÍCH HỢP TRÊN MÀN HÌNH -->
+    <section class="player-section" id="playerSection">
+      <div class="player-banner">
+        <div class="status-badge" id="playerStatusBadge">
+          🛡️ Chế độ: Không Quảng Cáo (Ad-Free Engine)
+        </div>
+        <div id="serverNameBadge">Server 1 (Invidious Sạch)</div>
       </div>
-      <div id="serverNameBadge">Server 1 (Invidious Sạch)</div>
-    </div>
 
-    <div class="video-container">
-      <iframe 
-        id="videoIframe" 
-        referrerpolicy="strict-origin-when-cross-origin"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-        allowfullscreen>
-      </iframe>
-    </div>
-    <div class="player-bar">
-      <div class="player-title" id="playerTitle">Đang chuẩn bị phát...</div>
-      <div class="player-controls">
-        <button class="car-btn" id="switchServerBtn" onclick="switchAdFreeServer()">🔄 Đổi Server</button>
-        <button class="car-btn" onclick="openCurrentInYouTube()">↗ Mở Gốc</button>
-        <button class="car-btn" onclick="toggleTheaterMode()">📺 Mở Rộng</button>
-        <button class="car-btn" onclick="closePlayer()">✕ Đóng</button>
+      <div class="video-container">
+        <iframe 
+          id="videoIframe" 
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+          allowfullscreen>
+        </iframe>
       </div>
-    </div>
-  </section>
+      <div class="player-bar">
+        <div class="player-title" id="playerTitle">Đang chuẩn bị phát...</div>
+        <div class="player-controls">
+          <button class="car-btn" id="switchServerBtn" onclick="switchAdFreeServer()">🔄 Đổi Server</button>
+          <button class="car-btn" onclick="openCurrentInYouTube()">↗ Mở Gốc</button>
+          <button class="car-btn" onclick="toggleTheaterMode()">📺 Mở Rộng</button>
+          <button class="car-btn" onclick="closePlayer()">✕ Đóng</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CỘT 2: BẢNG ĐIỀU KHIỂN BÊN CẠNH KHI CHIA ĐÔI MÀN HÌNH -->
+    <aside class="side-panel" id="sidePanel">
+      <div class="side-header">
+        <div class="side-tabs">
+          <button class="side-tab-btn active" id="tabMapBtn" onclick="switchSideTab('map')">🗺️ Bản Đồ GPS</button>
+          <button class="side-tab-btn" id="tabHubBtn" onclick="switchSideTab('hub')">👑 Premium Hub</button>
+          <button class="side-tab-btn" id="tabMusicBtn" onclick="switchSideTab('music')">⚡ Chọn Bài</button>
+        </div>
+        <div class="side-actions">
+          <button class="car-btn" onclick="swapSplitSides()" title="Đổi vị trí Trái / Phải">⇄ Đổi Bên</button>
+          <button class="car-btn" onclick="toggleSplitScreen()" title="Tắt chia đôi">✕</button>
+        </div>
+      </div>
+
+      <!-- TAB 1: BẢN ĐỒ GPS TRỰC TIẾP & ĐỒNG HỒ TỐC ĐỘ HUD -->
+      <div class="side-content" id="sideContentMap">
+        <div class="map-hud">
+          <div class="hud-box">
+            <div style="font-size: 11px; opacity: 0.8; text-transform: uppercase;">Tốc Độ Xe</div>
+            <div class="speed-number" id="carSpeedDisplay">0 km/h</div>
+          </div>
+          <button class="hud-btn" onclick="window.open('https://maps.google.com', '_blank')">
+            📍 Mở Google Maps
+          </button>
+        </div>
+        <div id="carplayMap"></div>
+      </div>
+
+      <!-- TAB 2: YOUTUBE PREMIUM HUB (CÁ NHÂN HÓA) -->
+      <div class="side-content" id="sideContentHub" style="display: none; padding: 12px; gap: 10px;">
+        <div style="font-weight: 700; color: #ffd60a; margin-bottom: 4px; font-size: 15px;">👑 Phím Tắt YouTube Premium</div>
+        <button class="action-row-btn highlight" onclick="goToUrl('https://m.youtube.com')">
+          <span style="font-size: 20px;">✨</span>
+          <div style="text-align: left;">
+            <div>Trang Chủ Premium</div>
+            <div style="font-size: 11px; opacity: 0.85;">Video đề xuất đúng gu của bạn</div>
+          </div>
+        </button>
+        <button class="action-row-btn" onclick="goToUrl('https://music.youtube.com')">
+          <span style="font-size: 20px;">🎵</span>
+          <div style="text-align: left;">
+            <div>YouTube Music Loa Xe</div>
+            <div style="font-size: 11px; opacity: 0.85;">Nghe nhạc chất lượng cao nhất</div>
+          </div>
+        </button>
+        <button class="action-row-btn" onclick="goToUrl('https://m.youtube.com/feed/subscriptions')">
+          <span style="font-size: 20px;">🔔</span>
+          <div style="text-align: left;">
+            <div>Kênh Đã Đăng Ký</div>
+            <div style="font-size: 11px; opacity: 0.85;">Video mới từ kênh theo dõi</div>
+          </div>
+        </button>
+        <button class="action-row-btn" onclick="goToUrl('https://m.youtube.com/feed/library')">
+          <span style="font-size: 20px;">📚</span>
+          <div style="text-align: left;">
+            <div>Thư Viện & Playlist</div>
+            <div style="font-size: 11px; opacity: 0.85;">Danh sách bài hát riêng đã lưu</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- TAB 3: DANH SÁCH NHANH ĐỔI BÀI -->
+      <div class="side-content" id="sideContentMusic" style="display: none; padding: 12px; gap: 8px;">
+        <div style="font-weight: 700; color: #fff; margin-bottom: 4px; font-size: 15px;">⚡ Chuyển Nhanh Bài Hát</div>
+        <div class="quick-card" style="min-height: 52px; padding: 8px 12px;" onclick="quickPlayPreset('lofi')">
+          <div class="card-icon" style="width: 36px; height: 36px; font-size: 18px; background: rgba(10, 132, 255, 0.2); color: #0a84ff;">☕</div>
+          <div class="card-content">
+            <div class="card-name" style="font-size: 14px;">Lofi Radio Đi Đêm</div>
+          </div>
+        </div>
+        <div class="quick-card" style="min-height: 52px; padding: 8px 12px;" onclick="quickPlayPreset('vinahouse')">
+          <div class="card-icon" style="width: 36px; height: 36px; font-size: 18px; background: rgba(255, 51, 68, 0.2); color: #ff3344;">🔥</div>
+          <div class="card-content">
+            <div class="card-name" style="font-size: 14px;">Vinahouse Cực Căng</div>
+          </div>
+        </div>
+        <div class="quick-card" style="min-height: 52px; padding: 8px 12px;" onclick="quickPlayPreset('acoustic')">
+          <div class="card-icon" style="width: 36px; height: 36px; font-size: 18px; background: rgba(255, 159, 10, 0.2); color: #ff9f0a;">🎸</div>
+          <div class="card-content">
+            <div class="card-name" style="font-size: 14px;">Acoustic Cafe Việt</div>
+          </div>
+        </div>
+        <div class="quick-card" style="min-height: 52px; padding: 8px 12px;" onclick="quickPlayPreset('vtv24')">
+          <div class="card-icon" style="width: 36px; height: 36px; font-size: 18px; background: rgba(48, 209, 88, 0.2); color: #30d158;">📻</div>
+          <div class="card-content">
+            <div class="card-name" style="font-size: 14px;">Thời Sự VTV24</div>
+          </div>
+        </div>
+        <div class="quick-card" style="min-height: 52px; padding: 8px 12px;" onclick="quickPlayPreset('bolero')">
+          <div class="card-icon" style="width: 36px; height: 36px; font-size: 18px; background: rgba(191, 90, 242, 0.2); color: #bf5af2;">🎻</div>
+          <div class="card-content">
+            <div class="card-name" style="font-size: 14px;">Bolero Trữ Tình Xưa</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
 
   <!-- KHU VỰC NỘI DUNG CHÍNH -->
   <main id="mainContent">
@@ -989,6 +1268,123 @@
 
     function closeLoginGuide() {
       document.getElementById('loginGuideModal').classList.remove('active');
+    }
+
+    // CHẾ ĐỘ CHIA ĐÔI MÀN HÌNH (SPLIT-SCREEN CONTROLLER)
+    let isSplitActive = false;
+    let isSplitReversed = false;
+    let leafletMap = null;
+    let carGpsMarker = null;
+    let gpsWatcherId = null;
+
+    function toggleSplitScreen() {
+      isSplitActive = !isSplitActive;
+      const splitWrapper = document.getElementById('splitWrapper');
+      const toggleBtn = document.getElementById('splitToggleBtn');
+      const playerSection = document.getElementById('playerSection');
+
+      if (isSplitActive) {
+        splitWrapper.classList.add('active');
+        toggleBtn.classList.add('active');
+        toggleBtn.textContent = '🪟 Chia Đôi: BẬT';
+        playerSection.classList.add('active');
+
+        // Nếu chưa phát video nào, tự động phát preset Lofi để người dùng thưởng thức ngay
+        if (!currentPlayingId) {
+          quickPlayPreset('lofi');
+        }
+
+        // Khởi tạo bản đồ nếu chưa có
+        setTimeout(() => {
+          initCarPlayMap();
+        }, 150);
+      } else {
+        splitWrapper.classList.remove('active');
+        toggleBtn.classList.remove('active');
+        toggleBtn.textContent = '🪟 Chia Đôi';
+      }
+      resetZoom();
+    }
+
+    function swapSplitSides() {
+      isSplitReversed = !isSplitReversed;
+      const splitWrapper = document.getElementById('splitWrapper');
+      if (isSplitReversed) {
+        splitWrapper.classList.add('reverse');
+      } else {
+        splitWrapper.classList.remove('reverse');
+      }
+      if (leafletMap) {
+        setTimeout(() => leafletMap.invalidateSize(), 200);
+      }
+    }
+
+    function switchSideTab(tabName) {
+      document.getElementById('tabMapBtn').classList.toggle('active', tabName === 'map');
+      document.getElementById('tabHubBtn').classList.toggle('active', tabName === 'hub');
+      document.getElementById('tabMusicBtn').classList.toggle('active', tabName === 'music');
+
+      document.getElementById('sideContentMap').style.display = tabName === 'map' ? 'flex' : 'none';
+      document.getElementById('sideContentHub').style.display = tabName === 'hub' ? 'flex' : 'none';
+      document.getElementById('sideContentMusic').style.display = tabName === 'music' ? 'flex' : 'none';
+
+      if (tabName === 'map' && leafletMap) {
+        setTimeout(() => leafletMap.invalidateSize(), 150);
+      }
+    }
+
+    function initCarPlayMap() {
+      if (leafletMap) {
+        leafletMap.invalidateSize();
+        return;
+      }
+      const mapContainer = document.getElementById('carplayMap');
+      if (!mapContainer || typeof L === 'undefined') return;
+
+      // Tọa độ mặc định (Việt Nam)
+      const defaultLat = 21.0285;
+      const defaultLng = 105.8542;
+
+      leafletMap = L.map('carplayMap', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([defaultLat, defaultLng], 15);
+
+      // Lớp bản đồ nền tối (CartoDB Dark Matter)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(leafletMap);
+
+      // Icon xe ô tô chấm xanh phát sáng chuẩn CarPlay
+      const carIcon = L.divIcon({
+        className: 'car-gps-marker',
+        html: '<div style="width:20px;height:20px;background:#0a84ff;border:3px solid #fff;border-radius:50%;box-shadow:0 0 14px #0a84ff;"></div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+
+      carGpsMarker = L.marker([defaultLat, defaultLng], { icon: carIcon }).addTo(leafletMap);
+
+      // Theo dõi vị trí GPS thời gian thực trên xe
+      if ('geolocation' in navigator) {
+        gpsWatcherId = navigator.geolocation.watchPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const speedKmh = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
+
+            leafletMap.setView([lat, lng], leafletMap.getZoom() || 16);
+            carGpsMarker.setLatLng([lat, lng]);
+
+            const speedDisplay = document.getElementById('carSpeedDisplay');
+            if (speedDisplay) speedDisplay.textContent = `${speedKmh} km/h`;
+          },
+          (error) => {
+            console.warn('GPS location info:', error.message);
+          },
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+        );
+      }
     }
 
     // 1. KIỂM TRA GIAO THỨC FILE://
